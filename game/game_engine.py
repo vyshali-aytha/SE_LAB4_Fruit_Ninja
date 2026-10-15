@@ -26,6 +26,63 @@ class GameEngine:
         self.font = pygame.font.SysFont("Arial", 28)
         self.game_over = False
 
+        self.difficulty = "Medium"
+
+        self.difficulty_settings = {
+            "Easy": {
+                "spawn_interval": 75,
+                "bomb_chance": 0.05,
+            },
+            "Medium": {
+                "spawn_interval": 55,
+                "bomb_chance": 0.12,
+            },
+            "Hard": {
+                "spawn_interval": 35,
+                "bomb_chance": 0.22,
+            },
+        }
+
+        self.should_exit = False
+
+    def start_new_game(self, difficulty):
+            self.difficulty = difficulty
+
+            settings = self.difficulty_settings[difficulty]
+            self.spawn_interval = settings["spawn_interval"]
+            self.bomb_chance = settings["bomb_chance"]
+
+            self.fruits.clear()
+            self.trail.clear()
+
+            self.score = 0
+            self.lives = 3
+            self._spawn_timer = 0
+            self.game_over = False
+
+    def get_menu_buttons(self):
+            labels = ["Easy", "Medium", "Hard", "Exit"]
+
+            button_width = 120
+            button_height = 48
+            gap = 12
+
+            total_width = len(labels) * button_width + (
+                len(labels) - 1
+            ) * gap
+
+            start_x = (self.width - total_width) // 2
+            y = self.height // 2 + 65
+
+            return {
+                label: pygame.Rect(
+                    start_x + i * (button_width + gap),
+                    y,
+                    button_width,
+                    button_height,
+                )
+                for i, label in enumerate(labels)
+            }
     def spawn_fruit(self):
         x = random.randint(60, self.width - 60)
         vy = -random.uniform(13, 16) * self.speed_scale
@@ -38,8 +95,19 @@ class GameEngine:
         self.fruits.append(fruit)
 
     def handle_event(self, event):
-        if event.type == pygame.MOUSEMOTION:
-            self._handle_motion(event.pos)
+            if self.game_over:
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    for label, rect in self.get_menu_buttons().items():
+                        if rect.collidepoint(event.pos):
+                            if label == "Exit":
+                                self.should_exit = True
+                            else:
+                                self.start_new_game(label)
+                            return
+                return
+
+            if event.type == pygame.MOUSEMOTION:
+                self._handle_motion(event.pos)
 
     def _handle_motion(self, pos):
         x, y = pos
@@ -100,7 +168,50 @@ class GameEngine:
         lives_text = self.font.render(f"Lives: {self.lives}", True, WHITE)
         screen.blit(lives_text, (self.width - 130, 10))
 
-        if self.game_over and not getattr(self, "_game_over_logged", False):
-            # NOTE: no proper game-over screen yet - see Task 2 in the README.
-            print("Game over! Final score:", self.score)
-            self._game_over_logged = True
+        if self.game_over:
+            overlay = pygame.Surface((self.width, self.height))
+            overlay.set_alpha(200)
+            overlay.fill((0, 0, 0))
+            screen.blit(overlay, (0, 0))
+
+            title_font = pygame.font.SysFont("Arial", 56, bold=True)
+            title = title_font.render(
+                "GAME OVER", True, (255, 80, 80)
+            )
+            screen.blit(
+                title,
+                title.get_rect(
+                    center=(self.width // 2, self.height // 2 - 100)
+                ),
+            )
+
+            score_text = self.font.render(
+                f"Final Score: {self.score}", True, WHITE
+            )
+            screen.blit(
+                score_text,
+                score_text.get_rect(
+                    center=(self.width // 2, self.height // 2 - 40)
+                ),
+            )
+
+            prompt = self.font.render(
+                "Choose a difficulty or exit", True, WHITE
+            )
+            screen.blit(
+                prompt,
+                prompt.get_rect(
+                    center=(self.width // 2, self.height // 2 + 15)
+                ),
+            )
+
+            for label, rect in self.get_menu_buttons().items():
+                pygame.draw.rect(
+                    screen, (65, 85, 125), rect, border_radius=8
+                )
+                pygame.draw.rect(
+                    screen, WHITE, rect, width=2, border_radius=8
+                )
+
+                text = self.font.render(label, True, WHITE)
+                screen.blit(text, text.get_rect(center=rect.center))
