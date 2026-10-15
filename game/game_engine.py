@@ -1,6 +1,7 @@
 import pygame
 import random
 from .fruit import Fruit
+import os
 
 # Game Engine
 
@@ -44,6 +45,7 @@ class GameEngine:
         }
 
         self.should_exit = False
+        self._load_sounds()
 
     def start_new_game(self, difficulty):
             self.difficulty = difficulty
@@ -120,11 +122,24 @@ class GameEngine:
             self.trail.pop(0)
 
     def _slice(self, fruit):
+        if fruit.sliced:
+            return
+
         fruit.sliced = True
+
         if fruit.kind == "bomb":
-            self.game_over = True
+            if self.bomb_sound:
+                self.bomb_sound.play()
+
+            if not self.game_over:
+                self.game_over = True
+                if self.game_over_sound:
+                    self.game_over_sound.play()
         else:
             self.score += 1
+
+            if self.slice_sound:
+                self.slice_sound.play()
 
     def handle_input(self):
         # Reserved for continuously-held-key input; this game is
@@ -152,8 +167,41 @@ class GameEngine:
             still_alive.append(fruit)
         self.fruits = still_alive
 
-        if self.lives <= 0:
+        if self.lives <= 0 and not self.game_over:
             self.game_over = True
+
+            if self.game_over_sound:
+                self.game_over_sound.play()
+
+    def _load_sounds(self):
+        """Load sound effects from assets/sounds."""
+        self.slice_sound = None
+        self.bomb_sound = None
+        self.game_over_sound = None
+
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+
+            sound_dir = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                "assets",
+                "sounds",
+            )
+
+            self.slice_sound = pygame.mixer.Sound(
+                os.path.join(sound_dir, "slice.wav")
+            )
+            self.bomb_sound = pygame.mixer.Sound(
+                os.path.join(sound_dir, "bomb.wav")
+            )
+            self.game_over_sound = pygame.mixer.Sound(
+                os.path.join(sound_dir, "game_over.wav")
+            )
+
+        except (pygame.error, OSError) as error:
+            print("Sound effects unavailable:", error)
+
 
     def render(self, screen):
         for fruit in self.fruits:
